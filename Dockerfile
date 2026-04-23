@@ -1,0 +1,24 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+LABEL org.opencontainers.image.title="Liquid Models"
+LABEL org.opencontainers.image.description="Static independent guide to Liquid Foundation Models and efficient AI deployment."
+LABEL org.opencontainers.image.source="https://github.com/gateszhangc/liquidmodels"
+
+COPY assets ./assets
+COPY index.html ./index.html
+COPY robots.txt ./robots.txt
+COPY script.js ./script.js
+COPY server.js ./server.js
+COPY site.webmanifest ./site.webmanifest
+COPY sitemap.xml ./sitemap.xml
+COPY styles.css ./styles.css
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

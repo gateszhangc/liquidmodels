@@ -1,0 +1,153 @@
+name: Build and Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: liquidmodels-production
+  cancel-in-progress: false
+
+env:
+  APP_REPOSITORY: gateszhangc/liquidmodels
+  BUILD_NAMESPACE: liquidmodels-build
+  IMAGE_NAME: ghcr.io/gateszhangc/liquidmodels
+  INFRA_REPOSITORY: gateszhangc/liquidmodels-infra
+  INFRA_OVERLAY_PATH: apps/liquidmodels/overlays/production
+
+jobs:
+  test:
+    name: Test static site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm test
+
+  build-and-promote:
+    name: Build image in Kubernetes and promote GitOps tag
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Set up kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Configure kubeconfig
+        shell: bash
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "${KUBECONFIG_B64}"
+          mkdir -p "${HOME}/.kube"
+          echo "${KUBECONFIG_B64}" | base64 --decode > "${HOME}/.kube/config"
+          chmod 600 "${HOME}/.kube/config"
+
+      - name: Prepare build namespace and credentials
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          SOURCE_REPO_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${GHCR_TOKEN}"
+          test -n "${GHCR_USERNAME}"
+          test -n "${SOURCE_REPO_TOKEN}"
+
+          kubectl create namespace "${BUILD_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl -n "${BUILD_NAMESPACE}" create secret generic liquidmodels-source-repo \
+            --from-literal=github-token="${SOURCE_REPO_TOKEN}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl -n "${BUILD_NAMESPACE}" create secret docker-registry liquidmodels-ghcr-push \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_USERNAME}" \
+            --docker-password="${GHCR_TOKEN}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Run Kubernetes image build job
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_JOB_NAME="liquidmodels-build-${GITHUB_SHA:0:12}"
+          export BUILD_JOB_NAME
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          replacements = {
+              "__APP_REPOSITORY__": os.environ["APP_REPOSITORY"],
+              "__BUILD_JOB_NAME__": os.environ["BUILD_JOB_NAME"],
+              "__BUILD_NAMESPACE__": os.environ["BUILD_NAMESPACE"],
+              "__GIT_SHA__": os.environ["GITHUB_SHA"],
+              "__IMAGE_NAME__": os.environ["IMAGE_NAME"],
+          }
+
+          manifest = Path(".github/k8s/build-job.yaml").read_text()
+          for source, value in replacements.items():
+              manifest = manifest.replace(source, value)
+          Path("/tmp/liquidmodels-build-job.yaml").write_text(manifest)
+          PY
+
+          kubectl -n "${BUILD_NAMESPACE}" delete job "${BUILD_JOB_NAME}" --ignore-not-found=true
+          kubectl apply -f /tmp/liquidmodels-build-job.yaml
+
+          if ! kubectl -n "${BUILD_NAMESPACE}" wait --for=condition=complete "job/${BUILD_JOB_NAME}" --timeout=20m; then
+            kubectl -n "${BUILD_NAMESPACE}" describe "job/${BUILD_JOB_NAME}"
+            kubectl -n "${BUILD_NAMESPACE}" logs "job/${BUILD_JOB_NAME}" --all-containers=true --tail=-1
+            exit 1
+          fi
+
+      - name: Check out GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPOSITORY }}
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra
+
+      - name: Promote image tag for ArgoCD
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "infra/${INFRA_OVERLAY_PATH}"
+          kustomize edit set image "liquidmodels=${IMAGE_NAME}:${GITHUB_SHA}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kustomization.yaml
+
+          if git diff --cached --quiet; then
+            echo "GitOps repository already references ${IMAGE_NAME}:${GITHUB_SHA}."
+            exit 0
+          fi
+
+          git commit -m "Promote liquidmodels ${GITHUB_SHA:0:12}"
+          git push

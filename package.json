@@ -1,0 +1,14 @@
+{
+  "name": "liquidmodels",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static independent guide to Liquid models, Liquid Foundation Models, and efficient edge AI deployment.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "playwright test",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

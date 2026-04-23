@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __BUILD_JOB_NAME__
+  namespace: __BUILD_NAMESPACE__
+  labels:
+    app.kubernetes.io/name: liquidmodels
+    app.kubernetes.io/component: image-build
+    app.kubernetes.io/managed-by: github-actions
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: liquidmodels
+        app.kubernetes.io/component: image-build
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: source
+          emptyDir: {}
+        - name: ghcr-auth
+          secret:
+            secretName: liquidmodels-ghcr-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+      initContainers:
+        - name: checkout
+          image: alpine/git:2.45.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: liquidmodels-source-repo
+                  key: github-token
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/__APP_REPOSITORY__.git" /workspace/source
+              cd /workspace/source
+              git fetch --depth 1 origin "__GIT_SHA__"
+              git checkout --detach "__GIT_SHA__"
+          volumeMounts:
+            - name: source
+              mountPath: /workspace/source
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - --context=/workspace/source
+            - --dockerfile=/workspace/source/Dockerfile
+            - --destination=__IMAGE_NAME__:__GIT_SHA__
+            - --destination=__IMAGE_NAME__:main
+            - --snapshot-mode=redo
+            - --use-new-run
+          volumeMounts:
+            - name: source
+              mountPath: /workspace/source
+              readOnly: true
+            - name: ghcr-auth
+              mountPath: /kaniko/.docker
+              readOnly: true
