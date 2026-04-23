@@ -127,21 +127,6 @@ jobs:
             exit 1
           fi
 
-      - name: Refresh production GHCR pull secret
-        shell: bash
-        env:
-          GHCR_TOKEN: ${{ github.token }}
-          GHCR_USERNAME: ${{ github.actor }}
-          PRODUCTION_NAMESPACE: liquidmodels
-        run: |
-          set -euo pipefail
-          kubectl create namespace "${PRODUCTION_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n "${PRODUCTION_NAMESPACE}" create secret docker-registry ghcr-pull \
-            --docker-server=ghcr.io \
-            --docker-username="${GHCR_USERNAME}" \
-            --docker-password="${GHCR_TOKEN}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Check out GitOps repository
         uses: actions/checkout@v4
         with:
