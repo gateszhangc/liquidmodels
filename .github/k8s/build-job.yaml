@@ -20,12 +20,6 @@ spec:
       volumes:
         - name: source
           emptyDir: {}
-        - name: ghcr-auth
-          secret:
-            secretName: liquidmodels-ghcr-push
-            items:
-              - key: .dockerconfigjson
-                path: config.json
       initContainers:
         - name: checkout
           image: alpine/git:2.45.2
@@ -57,12 +51,10 @@ spec:
             - --dockerfile=/workspace/source/Dockerfile
             - --destination=__IMAGE_NAME__:__GIT_SHA__
             - --destination=__IMAGE_NAME__:main
+            - --insecure-registry=10.43.178.245:5000
             - --snapshot-mode=redo
             - --use-new-run
           volumeMounts:
             - name: source
               mountPath: /workspace/source
-              readOnly: true
-            - name: ghcr-auth
-              mountPath: /kaniko/.docker
               readOnly: true

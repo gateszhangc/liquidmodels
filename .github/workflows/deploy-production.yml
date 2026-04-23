@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: liquidmodels-production
@@ -17,7 +16,7 @@ concurrency:
 env:
   APP_REPOSITORY: gateszhangc/liquidmodels
   BUILD_NAMESPACE: liquidmodels-build
-  IMAGE_NAME: ghcr.io/gateszhangc/liquidmodels
+  IMAGE_NAME: 10.43.178.245:5000/liquidmodels
   INFRA_REPOSITORY: gateszhangc/liquidmodels-infra
   INFRA_OVERLAY_PATH: apps/liquidmodels/overlays/production
 
@@ -69,28 +68,18 @@ jobs:
           echo "${KUBECONFIG_B64}" | base64 --decode > "${HOME}/.kube/config"
           chmod 600 "${HOME}/.kube/config"
 
-      - name: Prepare build namespace and credentials
+      - name: Prepare build namespace and source credentials
         shell: bash
         env:
-          GHCR_TOKEN: ${{ github.token }}
-          GHCR_USERNAME: ${{ github.actor }}
           SOURCE_REPO_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test -n "${GHCR_TOKEN}"
-          test -n "${GHCR_USERNAME}"
           test -n "${SOURCE_REPO_TOKEN}"
 
           kubectl create namespace "${BUILD_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl -n "${BUILD_NAMESPACE}" create secret generic liquidmodels-source-repo \
             --from-literal=github-token="${SOURCE_REPO_TOKEN}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          kubectl -n "${BUILD_NAMESPACE}" create secret docker-registry liquidmodels-ghcr-push \
-            --docker-server=ghcr.io \
-            --docker-username="${GHCR_USERNAME}" \
-            --docker-password="${GHCR_TOKEN}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Run Kubernetes image build job

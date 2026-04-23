@@ -16,7 +16,7 @@ The site runs on `http://127.0.0.1:3000` by default and exposes `/healthz` for K
 
 - Application repository: `gateszhangc/liquidmodels`
 - Branch: `main`
-- Image: `ghcr.io/gateszhangc/liquidmodels:<git-sha>`
+- Image: `10.43.178.245:5000/liquidmodels:<git-sha>`
 - GitOps repository: `gateszhangc/liquidmodels-infra`
 - Production overlay: `apps/liquidmodels/overlays/production`
 - Dokploy project: none
@@ -32,7 +32,7 @@ Required GitHub Actions secrets:
 - `KUBECONFIG_B64`: base64-encoded kubeconfig that can create build jobs and update secrets in the build namespace.
 - `INFRA_REPO_TOKEN`: GitHub token with write access to `gateszhangc/liquidmodels-infra`.
 
-The workflow uses the per-run `GITHUB_TOKEN` for application checkout inside the Kubernetes build Job and GHCR push authentication. Production requires a stable `ghcr-pull` dockerconfigjson secret in the `liquidmodels` namespace with GHCR read access.
+The workflow uses the per-run `GITHUB_TOKEN` for application checkout inside the Kubernetes build Job. The image is pushed to the in-cluster fleet registry at `10.43.178.245:5000`.
 
 ## Search Console
 
