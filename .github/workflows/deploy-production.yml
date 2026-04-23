@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: liquidmodels-production
@@ -71,9 +72,9 @@ jobs:
       - name: Prepare build namespace and credentials
         shell: bash
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          SOURCE_REPO_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
+          SOURCE_REPO_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -n "${GHCR_TOKEN}"

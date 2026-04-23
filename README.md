@@ -30,10 +30,9 @@ GitHub Actions -> K8s build Job -> GHCR -> kustomization newTag -> ArgoCD automa
 Required GitHub Actions secrets:
 
 - `KUBECONFIG_B64`: base64-encoded kubeconfig that can create build jobs and update secrets in the build namespace.
-- `SOURCE_REPO_TOKEN`: GitHub token with read access to `gateszhangc/liquidmodels`.
-- `GHCR_USERNAME`: GitHub username used for GHCR push auth.
-- `GHCR_TOKEN`: GitHub token with `write:packages` permission.
 - `INFRA_REPO_TOKEN`: GitHub token with write access to `gateszhangc/liquidmodels-infra`.
+
+The workflow uses the per-run `GITHUB_TOKEN` for application checkout inside the Kubernetes build Job and for GHCR push authentication.
 
 ## Search Console
 
