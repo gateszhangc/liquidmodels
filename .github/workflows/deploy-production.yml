@@ -16,7 +16,7 @@ concurrency:
 env:
   APP_REPOSITORY: gateszhangc/liquidmodels
   BUILD_NAMESPACE: liquidmodels-build
-  IMAGE_NAME: 10.43.178.245:5000/liquidmodels
+  IMAGE_NAME: registry.144.91.77.245.sslip.io/liquidmodels
   INFRA_REPOSITORY: gateszhangc/liquidmodels-infra
   INFRA_OVERLAY_PATH: apps/liquidmodels/overlays/production
 
