@@ -32,7 +32,7 @@ Required GitHub Actions secrets:
 - `KUBECONFIG_B64`: base64-encoded kubeconfig that can create build jobs and update secrets in the build namespace.
 - `INFRA_REPO_TOKEN`: GitHub token with write access to `gateszhangc/liquidmodels-infra`.
 
-The workflow uses the per-run `GITHUB_TOKEN` for application checkout inside the Kubernetes build Job and for GHCR push authentication.
+The workflow uses the per-run `GITHUB_TOKEN` for application checkout inside the Kubernetes build Job, GHCR push authentication, and refreshing the production `ghcr-pull` image pull secret before ArgoCD rollout.
 
 ## Search Console
 
